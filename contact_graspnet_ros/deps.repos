@@ -1,0 +1,5 @@
+repositories:
+  contact_graspnet_pytorch:
+    type: git
+    url: https://github.com/elchun/contact_graspnet_pytorch.git
+    version: main

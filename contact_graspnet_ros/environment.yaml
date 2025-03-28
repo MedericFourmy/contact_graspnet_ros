@@ -1,0 +1,20 @@
+channels:
+  - pytorch
+  - conda-forge
+  - robostack
+  - robostack-staging
+  - defaults
+dependencies:
+  # - python=3.10
+  - python=3.11
+  - pip
+  - spdlog
+  - ros-humble-desktop
+  - ros-humble-realsense2-camera
+  - ros-humble-realsense2-description
+  - pytorch
+  - pip:
+    - trimesh
+    - open3d
+    - pyrender
+

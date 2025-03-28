@@ -60,7 +60,7 @@ def launch_setup(
 
     return [
         contact_graspnet,
-        rs_cam,
+        # rs_cam,
     ]
 
 def generate_launch_description():
