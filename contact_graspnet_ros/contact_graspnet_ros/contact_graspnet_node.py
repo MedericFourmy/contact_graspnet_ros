@@ -2,7 +2,7 @@
 
 import os
 import numpy as np
-import cv2
+import time
 from pathlib import Path
 from transforms3d.quaternions import mat2quat
 import pairing
@@ -22,9 +22,13 @@ from cv_bridge import CvBridge
 from rclpy.qos import qos_profile_system_default
 from rclpy.qos_overriding_options import QoSOverridingOptions
 from geometry_msgs.msg import Pose
-from agimus_msgs.msg import Grasps, SceneGrasps
-from agimus_msgs.srv import GetSceneGrasps
+from contact_graspnet_msgs.msg import Grasps, SceneGrasps
+from contact_graspnet_msgs.srv import GetSceneGrasps
 
+
+"""
+ros2 service call /contact_graspnet/get_scene_grasps contact_graspnet_msgs/srv/GetSceneGrasps
+"""
 
 class ContactGraspnetNode(Node):
     def __init__(self, node_name: str = "contact_graspnet_node", **kwargs):
@@ -91,26 +95,31 @@ class ContactGraspnetNode(Node):
             Subscriber(
                 self,
                 Image,
-                cam_name + "/happypose/seg_masks",
+                "/happypose/seg_masks",
                 qos_profile=qos_profile_system_default,
                 qos_overriding_options=QoSOverridingOptions.with_default_policies(),
             ),      
         ]
 
         # Synchronizer for approximate time synchronization
-        self.sync = ApproximateTimeSynchronizer(sync_topics, queue_size=10, slop=0.1)
-        self.sync.registerCallback(self.imgs_callback)
+        self.sync = ApproximateTimeSynchronizer(sync_topics, queue_size=50, slop=0.1)
+        self.sync.registerCallback(self.callback_imgs)
 
         # OpenCV bridge
         self.bridge = CvBridge()
 
         # Grasp pose publisher
-        self.grasps_service = self.create_service(GetSceneGrasps, 'contact_graspnet/get_scene_grasps')
-        self.grasps_client = self.create_client(GetSceneGrasps, 'contact_graspnet/get_scene_grasps')
+        self.grasps_service = self.create_service(GetSceneGrasps, 'contact_graspnet/get_scene_grasps', self.callback_scene_grasps)
+
+        # contact graspnet inputs stored as attributes, initialized by callback_imgs
+        self.rgb = None
+        self.depth = None
+        self.seg_masks = None 
+        self.cam_K = None
 
         self.get_logger().info('ContactGraspnetNode has been started.')
 
-    def imgs_callback(self, 
+    def callback_imgs(self, 
                     color_image: Image,
                     color_camera_info: CameraInfo,
                     depth_image: Image,
@@ -122,6 +131,7 @@ class ContactGraspnetNode(Node):
         Only store synchronized image, depth, info and segmentation masks.
         """
         
+        self.get_logger().warn("callback_imgs.")
         connections = self.sync.input_connections
         if not np.allclose(color_camera_info.k, depth_camera_info.k):
             self.get_logger().warn(
@@ -134,32 +144,35 @@ class ContactGraspnetNode(Node):
 
         # Convert ROS Image messages to OpenCV images
         self.rgb = self.bridge.imgmsg_to_cv2(color_image, desired_encoding='bgr8')
-        self.depth = self.bridge.imgmsg_to_cv2(depth_image, desired_encoding='passthrough')
-        self.segmap = self.bridge.imgmsg_to_cv2(seg_masks, desired_encoding='mono16')
+        self.seg_masks = self.bridge.imgmsg_to_cv2(seg_masks, desired_encoding='mono16')
         self.cam_K = color_camera_info.k.reshape((3, 3))
+        depth = self.bridge.imgmsg_to_cv2(depth_image, desired_encoding='passthrough')
+        # rescale and convert to floats 
+        self.depth = 0.001 * depth.astype(np.float32)  # TODO: scale as a parameter
 
-        # # Call our own service every time
-        # req = GetSceneGrasps.Request()
-        # self.future = self.grasps_client.call_async(req)
-        # rclpy.spin_until_future_complete(self, self.future)
-        # return self.future.result()
+        unique, counts = np.unique(self.seg_masks, return_counts=True)
+        d = {u: c for u, c in zip(unique, counts)}
+        self.get_logger().warn(f"{d}")
 
-    def scene_grasps_srv_callback(self, request: GetSceneGrasps.Request, response: GetSceneGrasps.Response):
+    def callback_scene_grasps(self, request: GetSceneGrasps.Request, response: GetSceneGrasps.Response):
         """Return all grasps."""
-        scene_grasps_msg = self.contact_graspnet_inference(self.rgb, self.depth, self.segmap, self.cam_K)
+        t1 = time.time()
+        self.get_logger().warn("SERVICE called: callback_scene_grasps.")
+        if any(arg is None for arg in [self.rgb, self.depth, self.seg_masks, self.cam_K]):
+            self.get_logger().warn("Not image received yet, return empty grasps")
+            return SceneGrasps()
+        
+        scene_grasps_msg = self.contact_graspnet_inference(self.rgb, self.depth, self.seg_masks, self.cam_K)
         response.scene_grasps = scene_grasps_msg
+        self.get_logger().warn(f"SERVICE inference over in {time.time() - t1} (s): callback_scene_grasps.")
 
         return response
 
-    def contact_graspnet_inference(self, rgb, depth, segmap, cam_K):
-        if any(arg is None for arg in [rgb, depth, segmap, cam_K]):
-            self.get_logger().warn("Not image received yet, return empty grasps")
-            return SceneGrasps()
-
+    def contact_graspnet_inference(self, rgb, depth, seg_masks, cam_K):
         try:
             # Process the images
             pc_full, pc_segments, pc_colors = self.grasp_estimator.extract_point_clouds(
-                depth, cam_K, segmap, rgb, 
+                depth, cam_K, seg_masks, rgb, 
                 skip_border_objects=self.skip_border_objects, 
                 z_range=self.z_range
             )
@@ -177,7 +190,7 @@ class ContactGraspnetNode(Node):
             return SceneGrasps()
         
         id_nb_grasps = {pairing.depair(seg_id)[1]: len(v) for seg_id, v in all_grasps.items()}
-        print("# of grasps per object id:", id_nb_grasps)
+        self.get_logger().warning(f"# of grasps per object id: {id_nb_grasps}")
 
         scene_grasps = SceneGrasps()
 
@@ -185,8 +198,8 @@ class ContactGraspnetNode(Node):
             label_id, instance_id = pairing.depair(seg_id)
 
             # grasps and scores associated with object instance
-            grasps = all_grasps[seg_id]
-            scores = all_scores[seg_id]
+            grasps = all_grasps[seg_id].astype(np.float64)
+            scores = all_scores[seg_id].astype(np.float64)
 
             # loop over the grasps for this particular objects
             grasps_msg = Grasps()
@@ -200,24 +213,19 @@ class ContactGraspnetNode(Node):
                 trans = T_cg[:3,3]
 
                 pose_msg = Pose()
-                pose_msg.header.stamp = self.get_clock().now().to_msg()
-                pose_msg.header.frame_id = "camera_frame"  # Replace with your camera frame
-                pose_msg.pose.position.x = trans[0]
-                pose_msg.pose.position.y = trans[1]
-                pose_msg.pose.position.z = trans[2]
-                pose_msg.pose.orientation.x = qx
-                pose_msg.pose.orientation.y = qy
-                pose_msg.pose.orientation.z = qz
-                pose_msg.pose.orientation.w = qw
+                pose_msg.position.x = trans[0]
+                pose_msg.position.y = trans[1]
+                pose_msg.position.z = trans[2]
+                pose_msg.orientation.x = qx
+                pose_msg.orientation.y = qy
+                pose_msg.orientation.z = qz
+                pose_msg.orientation.w = qw
 
                 grasps_msg.grasps.append(pose_msg)
                 grasps_msg.scores.append(score)
 
-                # Publish the message
-                self.pose_publisher.publish(pose_msg)
-
             scene_grasps.object_grasps.append(grasps_msg)
-            scene_grasps.object_type.append(str(label_id))
+            scene_grasps.object_types.append(str(label_id))
 
         return scene_grasps
 

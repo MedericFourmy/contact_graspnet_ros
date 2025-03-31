@@ -10,21 +10,37 @@ from launch.launch_description_sources import PythonLaunchDescriptionSource
 from launch.substitutions import LaunchConfiguration, PathJoinSubstitution
 from launch_ros.actions import Node
 from launch_ros.substitutions import FindPackageShare
+from launch_ros.parameter_descriptions import ParameterFile
 
 
 def launch_setup(
     context: LaunchContext, *args, **kwargs
 ) -> list[LaunchDescriptionEntity]:
     
+
+    # Obtain argument specifying path from which to load happypose_ros parameters
+    happypose_params_path = LaunchConfiguration("happypose_params_path")
+
+    # Start ROS node of happypose (to get the segmentation masks)
+    happypose_node = Node(
+        package="happypose_ros",
+        executable="happypose_node",
+        name="happypose_node",
+        parameters=[ParameterFile(param_file=happypose_params_path, allow_substs=True)],
+        remappings=[
+            ("/cam_1/color/image_raw",   "/camera/color/image_raw"),
+            ("/cam_1/color/camera_info", "/camera/color/camera_info"),
+            ("/cam_1/depth/image_raw",   "/camera/aligned_depth_to_color/image_raw"),
+            ("/cam_1/depth/camera_info", "/camera/aligned_depth_to_color/camera_info"),
+        ]
+    )
+
     contact_graspnet = Node(
         package="contact_graspnet_ros",
         executable="contact_graspnet_node",
         name="contact_graspnet_node",
         parameters=[
         ],
-        # remappings=[
-        #     ("/unlabeled/detections", "/happypose/detections"),
-        # ],
     )
 
 
@@ -59,8 +75,9 @@ def launch_setup(
     )
 
     return [
+        rs_cam,
+        happypose_node,
         contact_graspnet,
-        # rs_cam,
     ]
 
 def generate_launch_description():
@@ -68,8 +85,19 @@ def generate_launch_description():
         DeclareLaunchArgument(
             "dataset_name",
             default_value="tless",
-            description="Name of the dataset to be used in the pipeline.",
-        )
+            description="Name of BOP dataset, used to load specific weights and object models.",
+        ),
+        DeclareLaunchArgument(
+            "happypose_params_path",
+            default_value=PathJoinSubstitution(
+                [
+                    FindPackageShare("contact_graspnet_examples"),
+                    "config",
+                    "cosypose_params.yaml",
+                ]
+            ),
+            description="Path to a file containing happypose_ros node parameters.",
+        ),
     ]
 
     return LaunchDescription(

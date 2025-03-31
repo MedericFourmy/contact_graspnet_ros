@@ -1,23 +1,21 @@
 <?xml version="1.0"?>
 <?xml-model href="http://download.ros.org/schema/package_format3.xsd" schematypens="http://www.w3.org/2001/XMLSchema"?>
 <package format="3">
-  <name>contact_graspnet_ros</name>
+  <name>contact_graspnet_examples</name>
   <version>0.2.0</version>
-  <description>ROS 2 wrapper around contact_graspnet python library for 6D grasp estimation</description>
+  <description>ROS 2 example node for contact_graspnet_ros</description>
   <author email="mederic.fourmy@gmail.com">Mederic Fourmy</author>
   <maintainer email="mederic.fourmy@gmail.com">Mederic Fourmy</maintainer>
   <license>BSD</license>
 
 
   <!-- When the whole thing will be packages this will be required -->
-  <depend>cv_bridge</depend>
   <depend>rclpy</depend>
   <depend>tf2_ros</depend>
   <depend>geometry_msgs</depend>
   <depend>image_geometry</depend>
   <depend>sensor_msgs</depend>
   <depend>std_msgs</depend>
-  <depend>contact_graspnet_msgs</depend>
 
   <test_depend>python3-pytest</test_depend>
   <test_depend>python3-mock</test_depend>

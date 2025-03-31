@@ -2,7 +2,7 @@ from pathlib import Path
 from typing import List
 from setuptools import find_packages, setup
 
-package_name = "contact_graspnet_ros"
+package_name = "contact_graspnet_examples"
 
 project_source_dir = Path(__file__).parent
 
@@ -17,16 +17,24 @@ setup(
     data_files=[
         ("share/ament_index/resource_index/packages", ["resource/" + package_name]),
         ("share/" + package_name, ["package.xml"]),
+        (
+            f"share/{package_name}/launch",
+            get_files(project_source_dir / "launch", "*.launch.py"),
+        ),
+        (
+            f"share/{package_name}/config",
+            get_files(project_source_dir / "config", "*.yaml"),
+        ),
     ],
     install_requires=["setuptools"],
     zip_safe=True,
     maintainer="Mederic Fourmy",
     maintainer_email="mederic.fourmy@gmail.com",
-    description="ROS 2 wrapper around contact_graspnet python library for 6D grasp estimation",
+    description="ROS 2 example node for contact_graspnet_ros",
     license="BSD",
     entry_points={
         "console_scripts": [
-            "contact_graspnet_node = contact_graspnet_ros.contact_graspnet_node:main",
+            "client = contact_graspnet_examples.client:main",
         ],
     },
 )
