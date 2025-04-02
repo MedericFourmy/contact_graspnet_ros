@@ -70,27 +70,24 @@ class ContactGraspnetNode(Node):
         ################
         # ROS setup
         ################
-        image_topics = ['/camera/color/image_raw', '/camera/aligned_depth_to_color/image_raw', "/seg_masks"]
-        info_topics = ["/camera/color/camera_info", "/camera/aligned_depth_to_color/camera_info"]
-        sync_img_subs = [
-            Subscriber( 
-                self, Image, topic,
-                qos_profile=qos_profile_system_default,
-                qos_overriding_options=QoSOverridingOptions.with_default_policies(),
-            )
-            for topic in image_topics
+        topics_msg_type = [
+            ("/camera/color/image_raw", Image),
+            ("/camera/color/camera_info", CameraInfo),
+            ("/camera/aligned_depth_to_color/image_raw", Image),
+            ("/camera/aligned_depth_to_color/camera_info", CameraInfo),
+            ("/seg_masks", Image),
         ]
-        sync_info_subs = [
+        sync_subs = [
             Subscriber( 
-                self, CameraInfo, topic,
+                self, msg_type, topic,
                 qos_profile=qos_profile_system_default,
                 qos_overriding_options=QoSOverridingOptions.with_default_policies(),
             )
-            for topic in info_topics
+            for topic, msg_type in topics_msg_type
         ]
 
         # Synchronizer for approximate time synchronization
-        self.sync = ApproximateTimeSynchronizer(sync_img_subs+sync_info_subs, queue_size=50, slop=0.1)
+        self.sync = ApproximateTimeSynchronizer(sync_subs, queue_size=50, slop=0.1)
         self.sync.registerCallback(self.callback_imgs)
 
         # OpenCV bridge
@@ -147,8 +144,8 @@ class ContactGraspnetNode(Node):
         t1 = time.time()
         self.get_logger().warn("SERVICE called: callback_scene_grasps.")
         if any(arg is None for arg in [self.rgb, self.depth, self.seg_masks, self.cam_K]):
-            self.get_logger().warn("Not image received yet, return empty grasps")
-            return SceneGrasps()
+            self.get_logger().warn("No image received yet, return empty grasps")
+            return GetSceneGrasps.Response()
         
         scene_grasps_msg = self.contact_graspnet_inference(self.rgb, self.depth, self.seg_masks, self.cam_K)
         response.scene_grasps = scene_grasps_msg

@@ -42,6 +42,7 @@ def launch_setup(
         name="contact_graspnet_node",
         parameters=[ParameterFile(param_file=contact_graspnet_params_path, allow_substs=True)],
             remappings=[
+            ("/seg_masks", "/happypose/seg_masks"),
             # ("/camera/color/image_raw",   "/camera/color/image_raw"),
             # ("/camera/color/camera_info", "/camera/color/camera_info"),
             # ("/camera/aligned_depth_to_color/image_raw",   "/camera/aligned_depth_to_color/image_raw"),
@@ -81,8 +82,8 @@ def launch_setup(
     )
 
     return [
-        # rs_cam,
-        # happypose_node,
+        rs_cam,
+        happypose_node,
         contact_graspnet,
     ]
 

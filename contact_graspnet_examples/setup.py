@@ -34,7 +34,7 @@ setup(
     license="BSD",
     entry_points={
         "console_scripts": [
-            "client = contact_graspnet_examples.client:main",
+            "grasp_client_example = contact_graspnet_examples.grasp_client_example:main",
         ],
     },
 )
