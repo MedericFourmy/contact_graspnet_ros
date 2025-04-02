@@ -25,6 +25,8 @@ from geometry_msgs.msg import Pose
 from contact_graspnet_msgs.msg import Grasps, SceneGrasps
 from contact_graspnet_msgs.srv import GetSceneGrasps
 
+# Automatically generated file
+from contact_graspnet_ros.contact_graspnet_ros_parameters import contact_graspnet_ros  # noqa: E402
 
 """
 ros2 service call /contact_graspnet/get_scene_grasps contact_graspnet_msgs/srv/GetSceneGrasps
@@ -38,16 +40,22 @@ class ContactGraspnetNode(Node):
         # ContactGraspnet setup
         #######################
 
+        try:
+            self._param_listener = contact_graspnet_ros.ParamListener(self)
+            self._params = self._param_listener.get_params()
+        except Exception as e:
+            self.get_logger().error(str(e))
+            raise e
+
         # Build the model
-        self.z_range = [0.2, 1.8]
-        self.local_regions = True
-        self.filter_grasps = True
-        self.skip_border_objects = True
-        self.forward_passes = 1
+        self._params.local_regions = True
+        self._params.filter_grasps = True
+        self._params.skip_border_objects = True
+        self._params.forward_passes = 1
         # TODO: pbly works only if contact_graspnet_pytorch what installed with pip install -e .
         ckpt_dir = Path(contact_graspnet_pytorch.__file__).parent.parent / "checkpoints/contact_graspnet"
-        arg_configs = []
-        global_config = config_utils.load_config(ckpt_dir, batch_size=self.forward_passes, arg_configs=arg_configs)
+        # global_config = config_utils.load_config(ckpt_dir, batch_size=self._params.forward_passes, arg_configs=arg_configs)
+        global_config = config_utils.load_config(ckpt_dir)
         self.grasp_estimator = GraspEstimator(global_config)
 
         # Load the weights
@@ -62,47 +70,27 @@ class ContactGraspnetNode(Node):
         ################
         # ROS setup
         ################
-        cam_name = 'camera'
-        sync_topics = [
-            Subscriber(
-                self,
-                Image,
-                cam_name + "/color/image_raw",
+        image_topics = ['/camera/color/image_raw', '/camera/aligned_depth_to_color/image_raw', "/seg_masks"]
+        info_topics = ["/camera/color/camera_info", "/camera/aligned_depth_to_color/camera_info"]
+        sync_img_subs = [
+            Subscriber( 
+                self, Image, topic,
                 qos_profile=qos_profile_system_default,
                 qos_overriding_options=QoSOverridingOptions.with_default_policies(),
-            ),
-            Subscriber(
-                self,
-                CameraInfo,
-                cam_name + "/color/camera_info",
+            )
+            for topic in image_topics
+        ]
+        sync_info_subs = [
+            Subscriber( 
+                self, CameraInfo, topic,
                 qos_profile=qos_profile_system_default,
                 qos_overriding_options=QoSOverridingOptions.with_default_policies(),
-            ),
-            Subscriber(
-                self,
-                Image,
-                cam_name + "/aligned_depth_to_color/image_raw",
-                qos_profile=qos_profile_system_default,
-                qos_overriding_options=QoSOverridingOptions.with_default_policies(),
-            ),
-            Subscriber(
-                self,
-                CameraInfo,
-                cam_name + "/aligned_depth_to_color/camera_info",
-                qos_profile=qos_profile_system_default,
-                qos_overriding_options=QoSOverridingOptions.with_default_policies(),
-            ),
-            Subscriber(
-                self,
-                Image,
-                "/happypose/seg_masks",
-                qos_profile=qos_profile_system_default,
-                qos_overriding_options=QoSOverridingOptions.with_default_policies(),
-            ),      
+            )
+            for topic in info_topics
         ]
 
         # Synchronizer for approximate time synchronization
-        self.sync = ApproximateTimeSynchronizer(sync_topics, queue_size=50, slop=0.1)
+        self.sync = ApproximateTimeSynchronizer(sync_img_subs+sync_info_subs, queue_size=50, slop=0.1)
         self.sync.registerCallback(self.callback_imgs)
 
         # OpenCV bridge
@@ -173,16 +161,16 @@ class ContactGraspnetNode(Node):
             # Process the images
             pc_full, pc_segments, pc_colors = self.grasp_estimator.extract_point_clouds(
                 depth, cam_K, seg_masks, rgb, 
-                skip_border_objects=self.skip_border_objects, 
-                z_range=self.z_range
+                skip_border_objects=self._params.skip_border_objects, 
+                z_range=self._params.z_range
             )
 
             all_grasps, all_scores, contact_pts, _ = self.grasp_estimator.predict_scene_grasps(
                 pc_full, 
                 pc_segments=pc_segments, 
-                local_regions=self.local_regions, 
-                filter_grasps=self.filter_grasps, 
-                forward_passes=self.forward_passes
+                local_regions=self._params.local_regions, 
+                filter_grasps=self._params.filter_grasps, 
+                forward_passes=self._params.forward_passes
             )  
 
         except Exception as e:

@@ -1,0 +1,12 @@
+/**:
+  ros__parameters:
+    # Z value threshold to crop the input point cloud.
+    z_range: [0.2, 2.0]
+    # Crop 3D local regions around given segments.
+    local_regions: true
+    # Filter grasp contacts according to the segmentation masks.
+    filter_grasps: true
+    # When extracting local_regions, ignore segments at depth map boundary.
+    skip_border_objects: true
+    # Run multiple parallel forward passes to mesh_utils more potential contact points/grasps.
+    forward_passes: 1

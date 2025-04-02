@@ -1,0 +1,25 @@
+contact_graspnet_ros:
+  z_range:
+    type: double_array
+    default_value: [0.2, 2.0]
+    description: Z value threshold to crop the input point cloud.
+    validation:
+      fixed_size<>: [2]
+  local_regions:
+    type: bool
+    default_value: true
+    description: Crop 3D local regions around given segments.
+  filter_grasps:
+    type: bool
+    default_value: true
+    description: Filter grasp contacts according to the segmentation masks.
+  skip_border_objects:
+    type: bool
+    default_value: true
+    description: When extracting local_regions, ignore segments at depth map boundary.
+  forward_passes:
+    type: int
+    default_value: 1
+    description: Run multiple parallel forward passes to mesh_utils more potential contact points/grasps.
+    validation:
+      gt_eq<>: [0]

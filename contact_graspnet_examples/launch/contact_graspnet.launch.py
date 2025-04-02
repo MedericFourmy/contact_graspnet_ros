@@ -20,6 +20,7 @@ def launch_setup(
 
     # Obtain argument specifying path from which to load happypose_ros parameters
     happypose_params_path = LaunchConfiguration("happypose_params_path")
+    contact_graspnet_params_path = LaunchConfiguration("contact_graspnet_params_path")
 
     # Start ROS node of happypose (to get the segmentation masks)
     happypose_node = Node(
@@ -39,8 +40,13 @@ def launch_setup(
         package="contact_graspnet_ros",
         executable="contact_graspnet_node",
         name="contact_graspnet_node",
-        parameters=[
-        ],
+        parameters=[ParameterFile(param_file=contact_graspnet_params_path, allow_substs=True)],
+            remappings=[
+            # ("/camera/color/image_raw",   "/camera/color/image_raw"),
+            # ("/camera/color/camera_info", "/camera/color/camera_info"),
+            # ("/camera/aligned_depth_to_color/image_raw",   "/camera/aligned_depth_to_color/image_raw"),
+            # ("/camera/aligned_depth_to_color/camera_info", "/camera/aligned_depth_to_color/camera_info"),
+        ]
     )
 
 
@@ -75,8 +81,8 @@ def launch_setup(
     )
 
     return [
-        rs_cam,
-        happypose_node,
+        # rs_cam,
+        # happypose_node,
         contact_graspnet,
     ]
 
@@ -97,6 +103,17 @@ def generate_launch_description():
                 ]
             ),
             description="Path to a file containing happypose_ros node parameters.",
+        ),
+        DeclareLaunchArgument(
+            "contact_graspnet_params_path",
+            default_value=PathJoinSubstitution(
+                [
+                    FindPackageShare("contact_graspnet_examples"),
+                    "config",
+                    "contact_graspnet_params.yaml",
+                ]
+            ),
+            description="Path to a file containing contact_graspnet_ros node parameters.",
         ),
     ]
 
