@@ -38,14 +38,8 @@ def main(args=None):
     for object_type, grasps in zip(object_types, object_grasps):
         node.get_logger().info(f"{object_type}: {len(grasps.grasps)}")
 
-    try:
-        rclpy.spin(node)
-    except KeyboardInterrupt:
-        pass
-    finally:
-        node.destroy_node()
-        rclpy.shutdown()
-
+    node.destroy_node()
+    rclpy.shutdown()
 
 if __name__ == '__main__':
     main()

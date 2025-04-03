@@ -10,3 +10,5 @@
     skip_border_objects: true
     # Run multiple parallel forward passes to mesh_utils more potential contact points/grasps.
     forward_passes: 1
+    # Scale factor for depth map.
+    depth_scale: 0.001

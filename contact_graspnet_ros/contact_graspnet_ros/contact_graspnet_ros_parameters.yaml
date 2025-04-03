@@ -23,3 +23,9 @@ contact_graspnet_ros:
     description: Run multiple parallel forward passes to mesh_utils more potential contact points/grasps.
     validation:
       gt_eq<>: [0]
+  depth_scale:
+    type: double
+    default_value: 0.001
+    description: Scale factor for depth map.
+    validation:
+      gt_eq<>: [0.0]
