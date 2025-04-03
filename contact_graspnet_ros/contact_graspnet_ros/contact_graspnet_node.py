@@ -11,7 +11,6 @@ import contact_graspnet_pytorch
 from contact_graspnet_pytorch.contact_grasp_estimator import GraspEstimator
 from contact_graspnet_pytorch import config_utils
 
-from contact_graspnet_pytorch.visualization_utils_o3d import visualize_grasps, show_image
 from contact_graspnet_pytorch.checkpoints import CheckpointIO 
 
 import rclpy
