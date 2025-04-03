@@ -104,11 +104,11 @@ class ContactGraspnetNode(Node):
         self.get_logger().info('ContactGraspnetNode has been started.')
 
     def callback_imgs(self, 
-                    color_image: Image,
-                    color_camera_info: CameraInfo,
-                    depth_image: Image,
-                    depth_camera_info: CameraInfo,
-                    seg_masks: Image = None,
+                      color_image: Image,
+                      color_camera_info: CameraInfo,
+                      depth_image: Image,
+                      depth_camera_info: CameraInfo,
+                      seg_masks: Image = None,
                  ) -> None:
         
         """
@@ -152,7 +152,12 @@ class ContactGraspnetNode(Node):
 
         return response
 
-    def contact_graspnet_inference(self, rgb: npt, depth, seg_masks, cam_K):
+    def contact_graspnet_inference(
+            self, 
+            rgb: npt.NDArray, 
+            depth: npt.NDArray, 
+            seg_masks: npt.NDArray, 
+            cam_K: npt.NDArray) -> SceneGrasps:
         try:
             # Process the images
             pc_full, pc_segments, pc_colors = self.grasp_estimator.extract_point_clouds(
