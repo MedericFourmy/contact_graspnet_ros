@@ -71,10 +71,16 @@ class ContactGraspnetNode(Node):
             raise e
 
         # Build the model
-        self._params.local_regions = True
-        self._params.filter_grasps = True
-        self._params.skip_border_objects = True
-        self._params.forward_passes = 1
+        # self._params.local_regions = True
+        # self._params.filter_grasps = True
+        # self._params.skip_border_objects = True
+        # self._params.forward_passes = 1
+        self.get_logger().info(f"{self._params.local_regions}")
+        self.get_logger().info(f"{self._params.filter_grasps}")
+        self.get_logger().info(f"{self._params.skip_border_objects}")
+        self.get_logger().info(f"{self._params.forward_passes}")
+        self.get_logger().info(f"{self._params.viz_grasps}")
+
         # TODO: pbly works only if contact_graspnet_pytorch what installed with pip install -e .
         ckpt_dir = Path(contact_graspnet_pytorch.__file__).parent.parent / "checkpoints/contact_graspnet"
         # global_config = config_utils.load_config(ckpt_dir, batch_size=self._params.forward_passes, arg_configs=arg_configs)
@@ -119,8 +125,9 @@ class ContactGraspnetNode(Node):
         # Grasp pose publisher
         self.grasps_service = self.create_service(GetSceneGrasps, 'contact_graspnet/get_scene_grasps', self.callback_scene_grasps)
 
-        # Grasp markers publisher
-        self._markers_pub = self.create_publisher(MarkerArray, "contact_graspnet_ros/markers", 10)
+        if self._params.viz_grasps:
+            # Grasp markers publisher
+            self._markers_pub = self.create_publisher(MarkerArray, "contact_graspnet_ros/markers", 10)
 
         # contact graspnet inputs stored as attributes, initialized by callback_imgs
         self.rgb = None
@@ -177,7 +184,8 @@ class ContactGraspnetNode(Node):
         response.scene_grasps = scene_grasps_msg
         self.get_logger().warn(f"SERVICE inference over in {time.time() - t1} (s): callback_scene_grasps.")
 
-        self.publish_grasp_markers(scene_grasps_msg)
+        if self._params.viz_grasps:
+            self.publish_grasp_markers(scene_grasps_msg)
 
         return response
     

@@ -10,3 +10,5 @@
     skip_border_objects: true
     # Run multiple parallel forward passes to mesh_utils more potential contact points/grasps.
     forward_passes: 5
+    # Activate publishing of object markers to visualize grasps in rviz
+    viz_grasps: true

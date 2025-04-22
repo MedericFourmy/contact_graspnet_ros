@@ -23,3 +23,7 @@ contact_graspnet_ros:
     description: Run multiple parallel forward passes to mesh_utils more potential contact points/grasps.
     validation:
       gt_eq<>: [0]
+  viz_grasps:
+    type: bool
+    default_value: true
+    description: Activate publishing of object markers to visualize grasps in rviz.
