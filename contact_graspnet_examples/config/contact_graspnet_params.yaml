@@ -9,4 +9,4 @@
     # When extracting local_regions, ignore segments at depth map boundary.
     skip_border_objects: true
     # Run multiple parallel forward passes to mesh_utils more potential contact points/grasps.
-    forward_passes: 1
+    forward_passes: 5

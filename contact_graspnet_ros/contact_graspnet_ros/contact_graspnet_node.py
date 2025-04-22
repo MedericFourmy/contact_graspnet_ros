@@ -1,19 +1,22 @@
 #!/usr/bin/env python3
 
+# std lib
 import os
 import numpy as np
 import time
 from pathlib import Path
+
+# Third party
 from transforms3d.quaternions import mat2quat
 import pairing
 
+# contact graspnet
 import contact_graspnet_pytorch
 from contact_graspnet_pytorch.contact_grasp_estimator import GraspEstimator
 from contact_graspnet_pytorch import config_utils
-
-from contact_graspnet_pytorch.visualization_utils_o3d import visualize_grasps, show_image
 from contact_graspnet_pytorch.checkpoints import CheckpointIO 
 
+# ROS
 import rclpy
 from rclpy.node import Node
 from sensor_msgs.msg import Image, CameraInfo
@@ -22,15 +25,35 @@ from cv_bridge import CvBridge
 from rclpy.qos import qos_profile_system_default
 from rclpy.qos_overriding_options import QoSOverridingOptions
 from geometry_msgs.msg import Pose
+from visualization_msgs.msg import Marker, MarkerArray
+
+# contact_graspnet_ros
 from contact_graspnet_msgs.msg import Grasps, SceneGrasps
 from contact_graspnet_msgs.srv import GetSceneGrasps
-
 # Automatically generated file
 from contact_graspnet_ros.contact_graspnet_ros_parameters import contact_graspnet_ros  # noqa: E402
 
 """
 ros2 service call /contact_graspnet/get_scene_grasps contact_graspnet_msgs/srv/GetSceneGrasps
 """
+
+# If we run our of colors, could switch to https://github.com/alan-turing-institute/distinctipy
+LABELED_COLORS = [
+    ([0.89019608, 0.46666667, 0.76078431, 1.0], "pink"),
+    ([0.12156863, 0.46666667, 0.70588235, 1.0], "blue"),
+    ([0.54901961, 0.3372549, 0.29411765, 1.0], "brown"),
+    ([0.68235294, 0.78039216, 0.90980392, 1.0], "light blue"),
+    ([0.99215686, 0.70588235, 0.1254902, 1.0], "yellow"),
+    ([0.99607843, 0.96078431, 0.19607843, 1.0], "light yellow"),
+    ([0.89019608, 0.46666667, 0.76078431, 1.0], "pink"),
+    ([0.12156863, 0.46666667, 0.70588235, 1.0], "blue"),
+    ([0.54901961, 0.3372549, 0.29411765, 1.0], "brown"),
+    ([0.68235294, 0.78039216, 0.90980392, 1.0], "light blue"),
+    ([0.99215686, 0.70588235, 0.1254902, 1.0], "yellow"),
+    ([0.99607843, 0.96078431, 0.19607843, 1.0], "light yellow"),
+]
+BEST_GRASP_COLOR = [0.0, 1., 0.0, 1.0]
+
 
 class ContactGraspnetNode(Node):
     def __init__(self, node_name: str = "contact_graspnet_node", **kwargs):
@@ -96,6 +119,9 @@ class ContactGraspnetNode(Node):
         # Grasp pose publisher
         self.grasps_service = self.create_service(GetSceneGrasps, 'contact_graspnet/get_scene_grasps', self.callback_scene_grasps)
 
+        # Grasp markers publisher
+        self._markers_pub = self.create_publisher(MarkerArray, "contact_graspnet_ros/markers", 10)
+
         # contact graspnet inputs stored as attributes, initialized by callback_imgs
         self.rgb = None
         self.depth = None
@@ -105,11 +131,11 @@ class ContactGraspnetNode(Node):
         self.get_logger().info('ContactGraspnetNode has been started.')
 
     def callback_imgs(self, 
-                    color_image: Image,
-                    color_camera_info: CameraInfo,
-                    depth_image: Image,
-                    depth_camera_info: CameraInfo,
-                    seg_masks: Image = None,
+                      color_image: Image,
+                      color_camera_info: CameraInfo,
+                      depth_image: Image,
+                      depth_camera_info: CameraInfo,
+                      seg_masks: Image = None,
                  ) -> None:
         
         """
@@ -151,7 +177,44 @@ class ContactGraspnetNode(Node):
         response.scene_grasps = scene_grasps_msg
         self.get_logger().warn(f"SERVICE inference over in {time.time() - t1} (s): callback_scene_grasps.")
 
+        self.publish_grasp_markers(scene_grasps_msg)
+
         return response
+    
+    def publish_grasp_markers(self, scene_grasps_msg: SceneGrasps):
+        grasp_markers = MarkerArray()
+        for i, (grasp, object_type) in enumerate(zip(scene_grasps_msg.object_grasps, scene_grasps_msg.object_types)):
+            if len(grasp.grasps) > 0:
+                if i < len(LABELED_COLORS):
+                    object_color, string_color = LABELED_COLORS[i]
+                else:
+                    object_color, string_color = LABELED_COLORS[len(LABELED_COLORS)-1]
+                    self.get_logger().warning(f"LABELED_COLORS is too small: {i}")
+
+                best_score_id = np.argmax(grasp.scores)
+                best_score = grasp.scores[best_score_id]
+                self.get_logger().info(f"Object {object_type} has {len(grasp.grasps)} grasps,of color {string_color} and best score {best_score}")
+            for j, grasp_pose in enumerate(grasp.grasps):
+                color = BEST_GRASP_COLOR if j == best_score_id else object_color
+                marker = Marker()
+                marker.header.frame_id = "camera_color_optical_frame"
+                marker.header.stamp = self.get_clock().now().to_msg()
+                marker.ns = "grasps"
+                marker.id = i * 100 + j
+                marker.mesh_resource="package://contact_graspnet_ros/meshes/panda_gripper.obj"
+                marker.type = Marker.MESH_RESOURCE
+                marker.action = Marker.ADD
+                marker.pose = grasp_pose
+                marker.scale.x = 1.0
+                marker.scale.y = 0.05  # flatten the gripper to make visualization more readable
+                marker.scale.z = 1.0
+                marker.color.r = color[0]
+                marker.color.g = color[1]
+                marker.color.b = color[2]
+                marker.color.a = 0.8 if grasp.scores[j] == best_score else 0.05
+                grasp_markers.markers.append(marker)
+        
+        self._markers_pub.publish(grasp_markers)
 
     def contact_graspnet_inference(self, rgb, depth, seg_masks, cam_K):
         try:

@@ -1,4 +1,4 @@
-ROS node around pytorch implementation of ContactGraspnet
+Examples around contact_graspet_ros.
 
-## Install
+## Run
 vcs import <path>/<to>/<dependencies> < src/contact_graspnet_ros/deps.repos

@@ -7,6 +7,8 @@
     use_depth: false
     # Specifies which pose estimator to use in the pipeline
     pose_estimator_type: "cosypose"
+    # Specifies if the combined segmentation mask should be published.
+    publish_seg_masks: true
     cosypose:
       # Name of BOP dataset, used to load specific weights and object models
       dataset_name: $(var dataset_name)
