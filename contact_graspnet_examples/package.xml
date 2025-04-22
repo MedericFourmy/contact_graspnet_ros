@@ -9,13 +9,14 @@
   <license>BSD</license>
 
 
-  <!-- When the whole thing will be packages this will be required -->
   <depend>rclpy</depend>
   <depend>tf2_ros</depend>
   <depend>geometry_msgs</depend>
   <depend>image_geometry</depend>
   <depend>sensor_msgs</depend>
   <depend>std_msgs</depend>
+  <depend>contact_graspnet_ros</depend>
+  <depend>contact_graspnet_msgs</depend>
 
   <test_depend>python3-pytest</test_depend>
   <test_depend>python3-mock</test_depend>

@@ -3,6 +3,7 @@
 # std lib
 import os
 import numpy as np
+import numpy.typing as npt
 import time
 from pathlib import Path
 
@@ -83,7 +84,6 @@ class ContactGraspnetNode(Node):
 
         # TODO: pbly works only if contact_graspnet_pytorch what installed with pip install -e .
         ckpt_dir = Path(contact_graspnet_pytorch.__file__).parent.parent / "checkpoints/contact_graspnet"
-        # global_config = config_utils.load_config(ckpt_dir, batch_size=self._params.forward_passes, arg_configs=arg_configs)
         global_config = config_utils.load_config(ckpt_dir)
         self.grasp_estimator = GraspEstimator(global_config)
 
@@ -166,7 +166,7 @@ class ContactGraspnetNode(Node):
         self.cam_K = color_camera_info.k.reshape((3, 3))
         depth = self.bridge.imgmsg_to_cv2(depth_image, desired_encoding='passthrough')
         # rescale and convert to floats 
-        self.depth = 0.001 * depth.astype(np.float32)  # TODO: scale as a parameter
+        self.depth = self._params.depth_scale * depth.astype(np.float32)
 
         unique, counts = np.unique(self.seg_masks, return_counts=True)
         d = {u: c for u, c in zip(unique, counts)}
@@ -224,7 +224,12 @@ class ContactGraspnetNode(Node):
         
         self._markers_pub.publish(grasp_markers)
 
-    def contact_graspnet_inference(self, rgb, depth, seg_masks, cam_K):
+    def contact_graspnet_inference(
+            self, 
+            rgb: npt.NDArray, 
+            depth: npt.NDArray, 
+            seg_masks: npt.NDArray, 
+            cam_K: npt.NDArray) -> SceneGrasps:
         try:
             # Process the images
             pc_full, pc_segments, pc_colors = self.grasp_estimator.extract_point_clouds(

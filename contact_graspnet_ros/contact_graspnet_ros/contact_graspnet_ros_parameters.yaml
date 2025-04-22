@@ -27,3 +27,9 @@ contact_graspnet_ros:
     type: bool
     default_value: true
     description: Activate publishing of object markers to visualize grasps in rviz.
+  depth_scale:
+    type: double
+    default_value: 0.001
+    description: Scale factor for depth map.
+    validation:
+      gt_eq<>: [0.0]

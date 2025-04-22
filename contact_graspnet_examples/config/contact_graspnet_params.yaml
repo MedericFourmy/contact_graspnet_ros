@@ -12,3 +12,5 @@
     forward_passes: 5
     # Activate publishing of object markers to visualize grasps in rviz
     viz_grasps: true
+     # Scale factor for depth map.
+    depth_scale: 0.001
